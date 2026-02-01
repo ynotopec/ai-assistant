@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from ai_assistant.judge import ImprovementJudge, JudgeDecision
 from ai_assistant.learning import LearningLog, PerformanceTuner
+from ai_assistant.llm import LLMClient
 from ai_assistant.models import Interaction
 from ai_assistant.tools import SimpleTool, Tool
 
@@ -30,11 +31,13 @@ class AdaptiveAssistant:
         self,
         judge: Optional[ImprovementJudge] = None,
         tuner: Optional[PerformanceTuner] = None,
+        llm_client: Optional[LLMClient] = None,
     ) -> None:
         self.state = AssistantState()
         self.judge = judge or ImprovementJudge()
         self.tuner = tuner or PerformanceTuner()
         self.learning_log = LearningLog()
+        self.llm_client = llm_client or LLMClient.from_env()
 
     def register_tool(self, tool: Tool) -> None:
         self.state.tools[tool.name] = tool
@@ -63,10 +66,34 @@ class AdaptiveAssistant:
             task = user_input.split(":", 1)[1].strip() or "outil-par-defaut"
             tool = self.ensure_tool(task)
             return tool.run(user_input)
+        if self.llm_client:
+            return self._generate_with_llm(user_input)
         return (
+            "Je n'ai pas de LLM configuré. Définissez OPENAI_API_KEY pour "
+            "activer un modèle, ou utilisez le mode outil. "
             "J'apprends de cette interaction et j'améliore mes réponses "
             "pour servir le bien commun."
         )
+
+    def _generate_with_llm(self, user_input: str) -> str:
+        system_prompt = (
+            "Tu es un assistant IA qui évolue et s'améliore en continu. "
+            "Tu apprends de chaque interaction, proposes des améliorations "
+            "bénéfiques au bien commun, limites les erreurs, et maximises "
+            "l'impact positif. Sois clair, honnête et prudent."
+        )
+        try:
+            return self.llm_client.generate(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input},
+                ]
+            )
+        except RuntimeError as exc:
+            return (
+                f"{exc} Utilisez OPENAI_API_KEY/OPENAI_MODEL pour activer "
+                "le LLM."
+            )
 
     def learn_from_interaction(self, interaction: Interaction) -> None:
         self.state.knowledge.append(interaction)
