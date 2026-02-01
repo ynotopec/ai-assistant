@@ -26,6 +26,14 @@ class AssistantState:
     improvements_applied: List[str] = field(default_factory=list)
 
 
+PRINCIPLES = [
+    "Apprentissage continu",
+    "Autonomie outillée",
+    "Auto-amélioration",
+    "Finalité éthique",
+]
+
+
 class AdaptiveAssistant:
     def __init__(
         self,
@@ -52,7 +60,8 @@ class AdaptiveAssistant:
                 system_prompt = (
                     "Tu es un outil spécialisé créé par un assistant IA. "
                     "Ta mission est d'aider l'utilisateur avec précision, "
-                    "en limitant les erreurs et en favorisant le bien commun."
+                    "en limitant les erreurs et en favorisant le bien commun. "
+                    f"Principes: {self._principles_text()}."
                 )
                 try:
                     return self.llm_client.generate(
@@ -105,7 +114,8 @@ class AdaptiveAssistant:
             "Tu apprends de chaque interaction, proposes des améliorations "
             "bénéfiques au bien commun, limites les erreurs, et maximises "
             "l'impact positif. Sois clair, honnête et prudent. "
-            f"Niveau de prudence actuel: {self.state.caution_level:.2f}."
+            f"Niveau de prudence actuel: {self.state.caution_level:.2f}. "
+            f"Principes: {self._principles_text()}."
         )
         try:
             return self.llm_client.generate(
@@ -207,5 +217,9 @@ class AdaptiveAssistant:
         return (
             f"Interactions: {len(self.state.knowledge)}, "
             f"Outils: {len(self.state.tools)}, "
-            f"Prudence: {self.state.caution_level:.2f}"
+            f"Prudence: {self.state.caution_level:.2f}, "
+            f"Principes: {self._principles_text()}"
         )
+
+    def _principles_text(self) -> str:
+        return ", ".join(PRINCIPLES)
