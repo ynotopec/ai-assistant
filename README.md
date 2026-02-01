@@ -9,6 +9,13 @@ Assistant IA adaptatif qui apprend de chaque interaction, crée et utilise des o
 - Améliorations proposées et validées par un juge selon le bien commun.
 - Ajustement de prudence pour réduire les erreurs et augmenter la fiabilité.
 
+## Principes directeurs
+
+- Apprentissage continu : l’assistant progresse à chaque interaction.
+- Autonomie outillée : il peut créer, modifier et utiliser ses propres outils.
+- Auto-amélioration : il évalue et corrige en permanence son fonctionnement.
+- Finalité éthique : chaque évolution doit servir le bien commun.
+
 ## Utilisation
 
 ```bash
