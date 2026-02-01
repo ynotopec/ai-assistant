@@ -15,6 +15,15 @@ Assistant IA adaptatif qui apprend de chaque interaction, crée et utilise des o
 python main.py
 ```
 
+Pour activer un LLM (API OpenAI compatible) :
+
+```bash
+export OPENAI_API_KEY="votre-cle"
+export OPENAI_MODEL="gpt-4o-mini"
+export OPENAI_BASE_URL="https://api.openai.com"
+python main.py
+```
+
 Exemple d'outil automatique:
 
 ```text
