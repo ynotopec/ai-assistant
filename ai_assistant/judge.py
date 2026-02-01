@@ -24,7 +24,14 @@ class ImprovementJudge:
                 reason="Rejet: l'amélioration pourrait nuire au bien commun.",
             )
 
-        if "erreur" in combined or "fiable" in combined or "bien commun" in combined:
+        positive_terms = [
+            "erreur",
+            "fiable",
+            "bien commun",
+            "connaissance",
+            "impact positif",
+        ]
+        if any(term in combined for term in positive_terms):
             return JudgeDecision(
                 approved=True,
                 reason="Approuvé: amélioration alignée avec l'impact positif.",

@@ -48,6 +48,21 @@ class AdaptiveAssistant:
             return tool
 
         def _fallback(payload: str) -> str:
+            if self.llm_client:
+                system_prompt = (
+                    "Tu es un outil spécialisé créé par un assistant IA. "
+                    "Ta mission est d'aider l'utilisateur avec précision, "
+                    "en limitant les erreurs et en favorisant le bien commun."
+                )
+                try:
+                    return self.llm_client.generate(
+                        [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": payload},
+                        ]
+                    )
+                except RuntimeError:
+                    pass
             return f"Outil '{task}' généré pour: {payload}"
 
         tool = SimpleTool(name=task, description="Outil généré automatiquement.", run=_fallback)
@@ -56,7 +71,12 @@ class AdaptiveAssistant:
 
     def interact(self, user_input: str) -> str:
         response = self._generate_response(user_input)
-        interaction = Interaction(user_input=user_input, assistant_response=response)
+        errors_detected = self._assess_errors(response)
+        interaction = Interaction(
+            user_input=user_input,
+            assistant_response=response,
+            errors_detected=errors_detected,
+        )
         self.learn_from_interaction(interaction)
         self._attempt_improvement(interaction)
         return response
@@ -65,6 +85,10 @@ class AdaptiveAssistant:
         if user_input.startswith("outil:"):
             task = user_input.split(":", 1)[1].strip() or "outil-par-defaut"
             tool = self.ensure_tool(task)
+            return tool.run(user_input)
+        inferred_tool = self._infer_tool_task(user_input)
+        if inferred_tool:
+            tool = self.ensure_tool(inferred_tool)
             return tool.run(user_input)
         if self.llm_client:
             return self._generate_with_llm(user_input)
@@ -80,7 +104,8 @@ class AdaptiveAssistant:
             "Tu es un assistant IA qui évolue et s'améliore en continu. "
             "Tu apprends de chaque interaction, proposes des améliorations "
             "bénéfiques au bien commun, limites les erreurs, et maximises "
-            "l'impact positif. Sois clair, honnête et prudent."
+            "l'impact positif. Sois clair, honnête et prudent. "
+            f"Niveau de prudence actuel: {self.state.caution_level:.2f}."
         )
         try:
             return self.llm_client.generate(
@@ -102,6 +127,16 @@ class AdaptiveAssistant:
             self.state.caution_level, interaction.errors_detected
         )
 
+    def _assess_errors(self, response: str) -> int:
+        lowered = response.lower()
+        markers = [
+            "échec",
+            "erreur",
+            "réponse llm",
+            "je n'ai pas de llm configuré",
+        ]
+        return 1 if any(marker in lowered for marker in markers) else 0
+
     def _attempt_improvement(self, interaction: Interaction) -> Optional[JudgeDecision]:
         proposal = self._propose_improvement(interaction)
         if not proposal:
@@ -116,15 +151,57 @@ class AdaptiveAssistant:
         if not self.state.knowledge:
             return None
 
+        recent_error_rate = self.learning_log.recent_error_rate()
+        if interaction.errors_detected == 0 and recent_error_rate < 0.2:
+            return None
+
         def _change() -> None:
             self.state.caution_level = min(1.0, self.state.caution_level + 0.05)
+            if "verification" not in self.state.tools:
+                self.register_tool(
+                    SimpleTool(
+                        name="verification",
+                        description="Outil de vérification pour limiter les erreurs.",
+                        run=lambda payload: (
+                            "Vérifie les faits et sources pour limiter les erreurs. "
+                            f"Contexte: {payload}"
+                        ),
+                    )
+                )
 
         return ImprovementProposal(
-            description="Augmenter légèrement la prudence pour réduire les erreurs.",
-            rationale="Réduction proactive des erreurs après une interaction.",
-            expected_impact="Moins d'erreurs et réponses plus fiables.",
+            description=(
+                "Renforcer la prudence et ajouter une étape de vérification "
+                "pour réduire les erreurs."
+            ),
+            rationale=(
+                "Les interactions récentes montrent des signes d'erreur ou "
+                "d'incertitude; une vérification améliore la fiabilité."
+            ),
+            expected_impact=(
+                "Moins d'erreurs, meilleure diffusion de la connaissance et "
+                "impact positif pour le bien commun."
+            ),
             change=_change,
         )
+
+    def _infer_tool_task(self, user_input: str) -> Optional[str]:
+        lowered = user_input.lower()
+        candidates: List[Tuple[str, str]] = [
+            ("résume", "resume"),
+            ("résumé", "resume"),
+            ("resume", "resume"),
+            ("analyse", "analyse"),
+            ("analyser", "analyse"),
+            ("traduire", "traduction"),
+            ("traduction", "traduction"),
+            ("plan", "plan"),
+            ("checklist", "checklist"),
+        ]
+        for keyword, tool_name in candidates:
+            if keyword in lowered:
+                return tool_name
+        return None
 
     def summary(self) -> str:
         return (
