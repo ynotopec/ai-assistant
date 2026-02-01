@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
+import unicodedata
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ai_assistant.judge import ImprovementJudge, JudgeDecision
@@ -32,6 +34,14 @@ PRINCIPLES = [
     "Auto-amélioration",
     "Finalité éthique",
 ]
+
+_NON_WORD_RE = re.compile(r"[^\w]+")
+
+
+def _normalize_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    stripped = "".join(char for char in normalized if not unicodedata.combining(char))
+    return stripped.lower()
 
 
 class AdaptiveAssistant:
@@ -138,14 +148,15 @@ class AdaptiveAssistant:
         )
 
     def _assess_errors(self, response: str) -> int:
-        lowered = response.lower()
+        normalized = _normalize_text(response)
         markers = [
             "échec",
             "erreur",
             "réponse llm",
             "je n'ai pas de llm configuré",
         ]
-        return 1 if any(marker in lowered for marker in markers) else 0
+        normalized_markers = [_normalize_text(marker) for marker in markers]
+        return 1 if any(marker in normalized for marker in normalized_markers) else 0
 
     def _attempt_improvement(self, interaction: Interaction) -> Optional[JudgeDecision]:
         proposal = self._propose_improvement(interaction)
@@ -196,20 +207,21 @@ class AdaptiveAssistant:
         )
 
     def _infer_tool_task(self, user_input: str) -> Optional[str]:
-        lowered = user_input.lower()
+        normalized = _normalize_text(user_input)
+        tokens = [token for token in _NON_WORD_RE.sub(" ", normalized).split() if token]
         candidates: List[Tuple[str, str]] = [
-            ("résume", "resume"),
-            ("résumé", "resume"),
             ("resume", "resume"),
+            ("resumer", "resume"),
             ("analyse", "analyse"),
             ("analyser", "analyse"),
             ("traduire", "traduction"),
             ("traduction", "traduction"),
             ("plan", "plan"),
+            ("planifier", "plan"),
             ("checklist", "checklist"),
         ]
         for keyword, tool_name in candidates:
-            if keyword in lowered:
+            if keyword in tokens or keyword in normalized:
                 return tool_name
         return None
 
