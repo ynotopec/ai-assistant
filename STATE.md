@@ -6,11 +6,11 @@
 flowchart TD
     A[User input] --> B{Starts with `outil:`?}
     B -->|Yes| C[Extract task name]
-    C --> D[ensure_tool(task)]
-    D --> E[tool.run(user_input)]
+    C --> D["ensure_tool(task)"]
+    D --> E["tool.run(user_input)"]
 
     B -->|No| F{Infer tool from keywords?}
-    F -->|Yes| G[ensure_tool(inferred_task)]
+    F -->|Yes| G["ensure_tool(inferred_task)"]
     G --> E
 
     F -->|No| H{LLM configured?}
